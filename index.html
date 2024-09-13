@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zeus Dashboard</title>
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #dc3545;
+            margin-bottom: 20px;
+        }
+
+        .description {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+            color: #495057;
+            line-height: 1.6;
+        }
+
+        .kpis {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .kpi-item {
+            flex: 1;
+            margin: 0 10px;
+            padding: 20px;
+            background: #ffe5e5;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .kpi-item h3 {
+            margin: 0;
+            font-size: 1.2em;
+            color: #dc3545;
+        }
+
+        .kpi-item p {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0 0;
+            color: #dc3545;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background-color: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #c82333;
+        }
+
+        button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        #loading-spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #dc3545;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-steps {
+            font-size: 1.2em;
+            color: #495057;
+        }
+
+        .dashboard {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            flex: 1;
+            padding: 20px;
+            background: #ffe5e5;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-container h3 {
+            margin: 0 0 20px;
+            font-size: 1.4em;
+            color: #dc3545;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        tr:hover {
+            background-color: #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Zeus Vulnerability Dashboard</h1>
+
+        <!-- Description -->
+        <div class="description">
+            <p>Getting Ahead! From Reactive to Proactive Threat Detection and Response. A solution which detects vulnerabilities as they are reported so that we could get ahead, know as they are reported, get into action to understand exposure and prioritize the remediation based on the exploit prediction.</p>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpis">
+            <div class="kpi-item">
+                <h3>Total Assets</h3>
+                <p id="total-assets">-</p>
+            </div>
+            <div class="kpi-item">
+                <h3>Affected Assets</h3>
+                <p id="affected-assets">-</p>
+            </div>
+            <div class="kpi-item">
+                <h3>Affected Percentage</h3>
+                <p id="affected-percentage">-</p>
+            </div>
+        </div>
+
+        <!-- Trigger Button -->
+        <div>
+            <button id="run-button" onclick="runZeus()">Run Zeus Engine</button>
+        </div>
+
+        <!-- Loading Spinner with Steps -->
+        <div id="loading-overlay">
+            <div id="loading-spinner"></div>
+            <div class="loading-steps">
+                <p>Fetching Inventory Data...</p>
+                <p>Running Zeus Engine...</p>
+                <p>Hitting APIs...</p>
+                <p>Generating Output...</p>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="dashboard">
+            <!-- Bar Chart: CVE IDs vs Published Date -->
+            <div class="chart-container">
+                <h3>CVE IDs vs Published Date</h3>
+                <canvas id="barChart"></canvas>
+            </div>
+
+            <!-- Line Chart: EPSS Percentile vs Count of CVE IDs -->
+            <div class="chart-container">
+                <h3>EPSS Percentile vs Count of CVE IDs</h3>
+                <canvas id="lineChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Top 10 EPSS Percentile Assets Table -->
+        <div>
+            <h3>Top 10 Assets with Highest EPSS Percentile</h3>
+            <table id="epss-table">
+                <thead>
+                    <tr>
+                        <th>Asset Name</th>
+                        <th>EPSS Percentile</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be dynamically inserted here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function runZeus() {
+            // Show loading spinner and disable button
+            document.getElementById('loading-overlay').style.display = 'flex';
+            document.getElementById('run-button').disabled = true;
+
+            // Fetch the data from the backend API
+            fetch('/run_script', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    document.getElementById('run-button').disabled = false;
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    return;
+                }
+
+                // Hide the loading spinner
+                document.getElementById('loading-overlay').style.display = 'none';
+
+                // KPIs
+                document.getElementById('total-assets').textContent = data.total_assets;
+                document.getElementById('affected-assets').textContent = data.affected_assets;
+                document.getElementById('affected-percentage').textContent = data.affected_percentage + "%";
+
+                // Bar chart: CVE IDs vs Published Date
+                if (data.cve_data) {
+                    let barChartLabels = data.cve_data.map(item => new Date(item['Published Date']).toLocaleDateString());
+                    let barChartData = data.cve_data.map(item => item['CVE Count']);
+                    drawBarChart(barChartLabels, barChartData);
+                }
+
+                // Line chart: EPSS Percentile vs Count of CVE IDs
+                if (data.epss_data) {
+                    let lineChartLabels = data.epss_data.map(item => item['EPSS Percentile']);
+                    let lineChartData = data.epss_data.map(item => item['CVE Count']);
+                    drawLineChart(lineChartLabels, lineChartData);
+                }
+
+                // Top 10 EPSS Percentile Assets
+                let tableBody = document.getElementById('epss-table').getElementsByTagName('tbody')[0];
+                tableBody.innerHTML = '';
+                if (data.top_10_epss_assets) {
+                    data.top_10_epss_assets.forEach(asset => {
+                        let row = `<tr>
+                            <td>${asset['Asset Name']}</td>
+                            <td>${asset['EPSS Percentile']}</td>
+                        </tr>`;
+                        tableBody.innerHTML += row;
+                    });
+                }
+            })
+            .catch(error => {
+                alert('An error occurred while fetching data.');
+                console.error('Error:', error);
+                document.getElementById('run-button').disabled = false;
+                document.getElementById('loading-overlay').style.display = 'none';
+            });
+        }
+
+        function drawBarChart(labels, data) {
+            var ctx = document.getElementById('barChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'CVE Count',
+                        data: data,
+                        backgroundColor: 'rgba(220, 53, 69, 0.5)',
+                        borderColor: '#dc3545',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Published Date'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Count of CVE IDs'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawLineChart(labels, data) {
+            var ctx = document.getElementById('lineChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'EPSS Percentile vs Count of CVE IDs',
+                        data: data,
+                        backgroundColor: 'rgba(220, 53, 69, 0.2)',
+                        borderColor: '#dc3545',
+                        borderWidth: 2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'EPSS Percentile'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Count of CVE IDs'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
